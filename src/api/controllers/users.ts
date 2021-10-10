@@ -1,9 +1,10 @@
 import { RequestHandler } from "express";
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import User from "../models/user";
 
-export const users_get_all: RequestHandler = async (req, res) => {
+const users_get_all: RequestHandler = async (req, res) => {
   try {
     const users = await User.find();
     res.status(200).json({ count: users.length, users });
@@ -13,7 +14,7 @@ export const users_get_all: RequestHandler = async (req, res) => {
   }
 };
 
-export const users_get_user: RequestHandler = async (req, res) => {
+const users_get_user: RequestHandler = async (req, res) => {
   try {
     const userId = req.params.userId;
     const user = await User.findById({ _id: userId });
@@ -31,13 +32,12 @@ export const users_get_user: RequestHandler = async (req, res) => {
   }
 };
 
-export const users_register: RequestHandler = async (req, res) => {
+const users_register: RequestHandler = async (req, res) => {
   try {
     const { email, password, firstName, lastName } = req.body;
 
     // check if email address exists already
     const users = await User.find({ email });
-    console.log(users);
 
     if (users.length === 0) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -68,4 +68,66 @@ export const users_register: RequestHandler = async (req, res) => {
 };
 
 // jwt login
-export const users_login: RequestHandler = async (req, res) => {};
+const users_login: RequestHandler = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne(email);
+    if (user) {
+      const authenticated = await bcrypt.compare(password, user.password);
+      if (authenticated) {
+        const token = jwt.sign(
+          {
+            // data we want to pass to the client (payload)
+            userId: user._id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          },
+          <string>process.env.JWT_KEY,
+          {
+            expiresIn: "1h",
+          }
+        );
+
+        res.status(200).json({
+          message: "Authentication successfull",
+          user,
+        });
+      } else {
+        res.status(401).json({ message: "Invalid email address or password" }); // invalid password
+      }
+    } else {
+      res.status(401).json({ message: "Invalid email address or password" }); // invalid email
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err });
+  }
+};
+
+const users_update_user: RequestHandler = async (req, res) => {
+  try {
+    const userId: string = req.params.userId;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err });
+  }
+};
+
+const users_delete_user: RequestHandler = async (req, res) => {
+  try {
+    const userId: string = req.params.userId;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err });
+  }
+};
+
+export default {
+  users_get_all,
+  users_get_user,
+  users_register,
+  users_login,
+  users_update_user,
+  users_delete_user,
+};
