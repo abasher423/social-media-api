@@ -71,7 +71,7 @@ const users_register: RequestHandler = async (req, res) => {
 const users_login: RequestHandler = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne(email);
+    const user = await User.findOne({ email: email });
     if (user) {
       const authenticated = await bcrypt.compare(password, user.password);
       if (authenticated) {
@@ -91,7 +91,7 @@ const users_login: RequestHandler = async (req, res) => {
 
         res.status(200).json({
           message: "Authentication successfull",
-          user,
+          token,
         });
       } else {
         res.status(401).json({ message: "Invalid email address or password" }); // invalid password
@@ -108,6 +108,21 @@ const users_login: RequestHandler = async (req, res) => {
 const users_update_user: RequestHandler = async (req, res) => {
   try {
     const userId: string = req.params.userId;
+    const user = await User.findById(userId);
+    if (user) {
+      const { email, password, firstName, lastName } = req.body;
+      user.email = email || user.email;
+      user.password = password
+        ? await bcrypt.hash(password, 10)
+        : user.password;
+      user.firstName = firstName || user.firstName;
+      user.lastName = lastName || user.lastName;
+      await user.save();
+      res.status(200).json({
+        message: "Account successfully updated",
+        user,
+      });
+    }
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err });
@@ -117,6 +132,26 @@ const users_update_user: RequestHandler = async (req, res) => {
 const users_delete_user: RequestHandler = async (req, res) => {
   try {
     const userId: string = req.params.userId;
+    const result = await User.deleteOne({ _id: userId });
+
+    if (result.deletedCount === 1) {
+      res.status(200).json({
+        message: "User successfully deleted",
+        request: {
+          type: "POST",
+          url: "http://localhost:5000/api/users",
+          description: "Create an individual user",
+          body: {
+            email: "string",
+            password: "string",
+            firstName: "string",
+            lastName: "string",
+          },
+        },
+      });
+    } else {
+      res.status(400).json({ message: "User already deleted " });
+    }
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err });
