@@ -17,7 +17,7 @@ const users_get_all: RequestHandler = async (req, res) => {
 const users_get_user: RequestHandler = async (req, res) => {
   try {
     const userId = req.params.userId;
-    const user = await User.findById({ _id: userId });
+    const user = await User.findById({ userId: userId });
     res.status(200).json({
       user,
       request: {
@@ -34,7 +34,7 @@ const users_get_user: RequestHandler = async (req, res) => {
 
 const users_register: RequestHandler = async (req, res) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, forename, surname } = req.body;
 
     // check if email address exists already
     const users = await User.find({ email });
@@ -43,11 +43,11 @@ const users_register: RequestHandler = async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
       if (hashedPassword) {
         const user = new User({
-          _id: new mongoose.Types.ObjectId(),
+          userId: new mongoose.Types.ObjectId(),
           password: hashedPassword,
           email,
-          firstName,
-          lastName,
+          forename,
+          surname,
         });
 
         await user.save();
@@ -78,10 +78,12 @@ const users_login: RequestHandler = async (req, res) => {
         const token = jwt.sign(
           {
             // data we want to pass to the client (payload)
-            userId: user._id,
+            userId: user.userId,
+            name: {
+              first: user.name.first,
+              last: user.name.last,
+            },
             email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
           },
           <string>process.env.JWT_KEY,
           {
@@ -109,14 +111,16 @@ const users_update_user: RequestHandler = async (req, res) => {
   try {
     const userId: string = req.params.userId;
     const user = await User.findById(userId);
+
     if (user) {
-      const { email, password, firstName, lastName } = req.body;
+      const { email, password } = req.body;
+      const { first, last } = req.body.name;
+
       user.email = email || user.email;
-      user.password = password
-        ? await bcrypt.hash(password, 10)
-        : user.password;
-      user.firstName = firstName || user.firstName;
-      user.lastName = lastName || user.lastName;
+      user.password = password ? await bcrypt.hash(password, 10) : user.password;
+      user.name.first = first || user.name.first;
+      user.name.last = last || user.name.last;
+
       await user.save();
       res.status(200).json({
         message: "Account successfully updated",
@@ -132,7 +136,7 @@ const users_update_user: RequestHandler = async (req, res) => {
 const users_delete_user: RequestHandler = async (req, res) => {
   try {
     const userId: string = req.params.userId;
-    const result = await User.deleteOne({ _id: userId });
+    const result = await User.deleteOne({ userId: userId });
 
     if (result.deletedCount === 1) {
       res.status(200).json({
@@ -142,10 +146,12 @@ const users_delete_user: RequestHandler = async (req, res) => {
           url: "http://localhost:5000/api/users",
           description: "Create an individual user",
           body: {
+            name: {
+              first: "string",
+              last: "string",
+            },
             email: "string",
             password: "string",
-            firstName: "string",
-            lastName: "string",
           },
         },
       });
